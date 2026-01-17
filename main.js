@@ -1,6 +1,6 @@
 import Phaser from "phaser";
-import Boot from "./src/Boot";
-import Play from "./src/Play";
+import Boot from "./src/scenes/Boot";
+import Play from "./src/scenes/Play";
 
 const config = {
   type: Phaser.AUTO,

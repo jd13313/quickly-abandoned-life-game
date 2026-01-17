@@ -8,14 +8,17 @@ class Play extends Phaser.Scene {
     create() {
         this.add.tileSprite(0, 0, 640, 480, 'grass').setOrigin(0, 0);
 
+        // Track collision cooldowns
+        this.collisionCooldowns = new Map();
+
         this.snakes = this.createGroup('snakes', 'snakesGreen', 10, {
-            speed: Phaser.Math.Between(1, 5),
+            speed: Phaser.Math.FloatBetween(0.7, 3.5),
             health: Phaser.Math.Between(5, 100),
             hunger: Phaser.Math.Between(5, 100),
         });
-        
+
         this.rats = this.createGroup('rats', 'rat1', 30, {
-            speed: Phaser.Math.Between(2, 6),
+            speed: Phaser.Math.FloatBetween(1.4, 4.2),
             health: Phaser.Math.Between(5, 100),
             hunger: Phaser.Math.Between(5, 100),
         });
@@ -35,14 +38,29 @@ class Play extends Phaser.Scene {
         });
 
         this.physics.add.collider(this.snakes, this.snakes, (snake1, snake2) => {
-            console.log('two snakes collided');
-            this.snakes.add({
-                ...snake1,
-                stats: {
-                    ...snake1.stats,
-                    hunger: 100
+            // Create unique collision pair ID
+            const pairId = [snake1, snake2].sort().join('-');
+            const now = Date.now();
+
+            // Check if this pair is on cooldown (prevent collision spam)
+            if (this.collisionCooldowns.has(pairId)) {
+                const lastCollision = this.collisionCooldowns.get(pairId);
+                if (now - lastCollision < 2000) { // 2 second cooldown
+                    return;
                 }
-            });
+            }
+
+            console.log('two snakes collided');
+            this.collisionCooldowns.set(pairId, now);
+
+            // Create a new baby snake with proper physics
+            const babySnake = this.physics.add.sprite(snake1.x, snake1.y, 'snakesGreen');
+            babySnake.stats = {
+                speed: Phaser.Math.FloatBetween(0.7, 3.5),
+                health: Phaser.Math.Between(5, 100),
+                hunger: 100
+            };
+            this.snakes.add(babySnake);
 
             snake2.x -= 5;
             snake2.y -= 5;
@@ -77,7 +95,14 @@ class Play extends Phaser.Scene {
                 this.moveSpriteRandom(snake);
                 snake.stats.hunger -= 0.5;
             } else {
-                const nearestRat = this.findNearestRat(this.snakeGreen);
+                const nearestRat = this.findNearestRat(snake);
+
+                if (!nearestRat) {
+                    this.moveSpriteRandom(snake);
+                    return;
+                }
+
+
                 if (snake.x > nearestRat.x) {
                     snake.x -= snake.stats.speed;
                 } else if (snake.x < nearestRat.x) {
